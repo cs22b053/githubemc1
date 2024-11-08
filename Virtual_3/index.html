@@ -3,92 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room Simulation</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 50px;
-        }
-        #room {
-            position: relative;
-            background-color: #f0f0f0;
-            border: 2px solid #333;
-            margin-top: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        #person {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background-color: blue;
-            border-radius: 50%;
-        }
-        .form-container {
-            text-align: center;
-        }
-        .form-container input {
-            margin: 5px;
-        }
-    </style>
+    <title>Simulation</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Virtual Room Simulation</h1>
-    <div class="form-container">
-        <label for="length">Room Length (px): </label>
-        <input type="number" id="length" min="100" max="800" value="300">
-        <label for="width">Room Width (px): </label>
-        <input type="number" id="width" min="100" max="800" value="300">
+    <div id="roomForm">
+        <label for="length">Room Length (meters):</label>
+        <input type="number" id="length" min="1" max="20" value="5">
+        <label for="width">Room Width (meters):</label>
+        <input type="number" id="width" min="1" max="20" value="5">
+        <label for="height">Room Height (meters):</label>
+        <input type="number" id="height" min="2" max="10" value="3">
         <button onclick="createRoom()">Create Room</button>
     </div>
-    <div id="room"></div>
+    <div id="instructions">Click Anywhere</div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+    
     <script>
-        let personInterval;
+        let scene, camera, renderer, controls;
+        let roomWidth = 5, roomLength = 5, roomHeight = 3;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            controls = new THREE.PointerLockControls(camera, document.body);
+
+            const instructions = document.getElementById('instructions');
+            instructions.style.display = 'block';
+
+            document.body.addEventListener('click', () => {
+                controls.lock();
+            });
+
+            controls.addEventListener('lock', () => {
+                instructions.style.display = 'none';
+            });
+            
+            controls.addEventListener('unlock', () => {
+                instructions.style.display = 'block';
+            });
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0xffffff, 0.7);
+            pointLight.position.set(5, 10, 5);
+            scene.add(pointLight);
+
+            createRoom();
+            animate();
+        }
 
         function createRoom() {
-            clearInterval(personInterval); // Clear any existing movement
+            scene.children.forEach((child) => {
+                if (child.isMesh && child.userData.roomObject) {
+                    scene.remove(child);
+                }
+            });
 
-            const room = document.getElementById("room");
-            const length = document.getElementById("length").value;
-            const width = document.getElementById("width").value;
+            roomWidth = parseFloat(document.getElementById('width').value);
+            roomLength = parseFloat(document.getElementById('length').value);
+            roomHeight = parseFloat(document.getElementById('height').value);
 
-            // Set room dimensions
-            room.style.width = `${width}px`;
-            room.style.height = `${length}px`;
+            camera.position.set(0, roomHeight / 2, 0);
+            camera.lookAt(0, roomHeight / 2, -1);
 
-            // Create or reset person position
-            let person = document.getElementById("person");
-            if (!person) {
-                person = document.createElement("div");
-                person.id = "person";
-                room.appendChild(person);
-            }
+            const floorGeometry = new THREE.PlaneGeometry(roomWidth, roomLength);
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xd5bdaf});
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = 0;
+            floor.userData.roomObject = true;
+            scene.add(floor);
 
-            // Set initial random position for the person
-            movePersonRandomly(width, length);
+            const ceiling = new THREE.Mesh(floorGeometry, new THREE.MeshStandardMaterial({ color: 0x00b4d8 }));
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = roomHeight;
+            ceiling.userData.roomObject = true;
+            scene.add(ceiling);
 
-            // Interval to move person every second
-            personInterval = setInterval(() => movePersonRandomly(width, length), 1000);
+            const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffafcc });
+            const wallMaterial1 = new THREE.MeshStandardMaterial({ color: 0xcdb4db });
+
+            const backWall = new THREE.Mesh(
+                new THREE.BoxGeometry(roomWidth, roomHeight, 0.1),
+                wallMaterial1
+            );
+            backWall.position.set(0, roomHeight / 2, -roomLength / 2);
+            backWall.userData.roomObject = true;
+            scene.add(backWall);
+
+            const frontWall = new THREE.Mesh(
+                new THREE.BoxGeometry(roomWidth, roomHeight, 0.1),
+                wallMaterial1
+            );
+            frontWall.position.set(0, roomHeight / 2, roomLength / 2);
+            frontWall.userData.roomObject = true;
+            scene.add(frontWall);
+
+            const leftWall = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, roomHeight, roomLength),
+                wallMaterial
+            );
+            leftWall.position.set(-roomWidth / 2, roomHeight / 2, 0);
+            leftWall.userData.roomObject = true;
+
+            const rightWall = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, roomHeight, roomLength),
+                wallMaterial
+            );
+            rightWall.position.set(roomWidth / 2, roomHeight / 2, 0);
+            rightWall.userData.roomObject = true;
+            scene.add(rightWall);
+        }
+        
+
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
         }
 
-        function movePersonRandomly(roomWidth, roomHeight) {
-            const person = document.getElementById("person");
-            const maxX = roomWidth - 20;
-            const maxY = roomHeight - 20;
+        window.addEventListener('resize', () => {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+        });
 
-            // Generate random position within bounds
-            const randomX = Math.floor(Math.random() * maxX);
-            const randomY = Math.floor(Math.random() * maxY);
-
-            // Update person position
-            person.style.left = `${randomX}px`;
-            person.style.top = `${randomY}px`;
-        }
+        init();
     </script>
 </body>
 </html>

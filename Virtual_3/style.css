@@ -1,0 +1,25 @@
+body 
+{ 
+    margin: 0; 
+    overflow: hidden; 
+}
+#roomForm 
+{
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    z-index: 10;
+    border-radius: 5px;
+}
+#instructions 
+{
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: 50%;
+    font-size: 64px;
+    color: white;
+    display: none;
+}
