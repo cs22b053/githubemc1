@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+        }
+        #room {
+            position: relative;
+            background-color: #f0f0f0;
+            border: 2px solid #333;
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #person {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: blue;
+            border-radius: 50%;
+        }
+        .form-container {
+            text-align: center;
+        }
+        .form-container input {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Virtual Room Simulation</h1>
+    <div class="form-container">
+        <label for="length">Room Length (px): </label>
+        <input type="number" id="length" min="100" max="800" value="300">
+        <label for="width">Room Width (px): </label>
+        <input type="number" id="width" min="100" max="800" value="300">
+        <button onclick="createRoom()">Create Room</button>
+    </div>
+    <div id="room"></div>
+
+    <script>
+        let personInterval;
+
+        function createRoom() {
+            clearInterval(personInterval); // Clear any existing movement
+
+            const room = document.getElementById("room");
+            const length = document.getElementById("length").value;
+            const width = document.getElementById("width").value;
+
+            // Set room dimensions
+            room.style.width = `${width}px`;
+            room.style.height = `${length}px`;
+
+            // Create or reset person position
+            let person = document.getElementById("person");
+            if (!person) {
+                person = document.createElement("div");
+                person.id = "person";
+                room.appendChild(person);
+            }
+
+            // Set initial random position for the person
+            movePersonRandomly(width, length);
+
+            // Interval to move person every second
+            personInterval = setInterval(() => movePersonRandomly(width, length), 1000);
+        }
+
+        function movePersonRandomly(roomWidth, roomHeight) {
+            const person = document.getElementById("person");
+            const maxX = roomWidth - 20;
+            const maxY = roomHeight - 20;
+
+            // Generate random position within bounds
+            const randomX = Math.floor(Math.random() * maxX);
+            const randomY = Math.floor(Math.random() * maxY);
+
+            // Update person position
+            person.style.left = `${randomX}px`;
+            person.style.top = `${randomY}px`;
+        }
+    </script>
+</body>
+</html>
