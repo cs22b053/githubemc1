@@ -3,8 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulation</title>
-    <link rel="stylesheet" href="style.css">
+    <title>3D Room with Dynamic Growing Plants</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #roomForm {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            z-index: 10;
+            border-radius: 5px;
+        }
+        #controls {
+            position: absolute;
+            top: 150px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            z-index: 10;
+            border-radius: 5px;
+        }
+        #instructions {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            top: 50%;
+            font-size: 24px;
+            color: white;
+            display: none;
+        }
+    </style>
 </head>
 <body>
     <div id="roomForm">
@@ -14,16 +43,40 @@
         <input type="number" id="width" min="1" max="20" value="5">
         <label for="height">Room Height (meters):</label>
         <input type="number" id="height" min="2" max="10" value="3">
+        <br><br>
+        <label for="plant">Select Plant Model:</label>
+        <select id="plant">
+            <option value="plant1.glb">Plant 1</option>
+            <option value="plant2.glb">Plant 2</option>
+            <option value="plant3.glb">Plant 3</option>
+        </select>
+        <br><br>
         <button onclick="createRoom()">Create Room</button>
     </div>
-    <div id="instructions">Click Anywhere</div>
+
+    <div id="controls">
+        <label for="sunlight">Sunlight (%):</label>
+        <input type="range" id="sunlight" min="0" max="100" value="100" oninput="updateGrowthFactors()">
+        <br>
+        <label for="water">Water (%):</label>
+        <input type="range" id="water" min="0" max="100" value="100" oninput="updateGrowthFactors()">
+    </div>
+
+    <div id="instructions">Click to look around the room</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
-    
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
     <script>
         let scene, camera, renderer, controls;
         let roomWidth = 5, roomLength = 5, roomHeight = 3;
+        let plants = {}; 
+        let selectedPlant = "plant1.glb"; 
+        const maxScale = 0.1; 
+        const growthRate = 0.00002; 
+        let sunlightFactor = 0.5; 
+        let waterFactor = 0.5; 
 
         function init() {
             scene = new THREE.Scene();
@@ -34,7 +87,6 @@
             document.body.appendChild(renderer.domElement);
 
             controls = new THREE.PointerLockControls(camera, document.body);
-
             const instructions = document.getElementById('instructions');
             instructions.style.display = 'block';
 
@@ -45,18 +97,20 @@
             controls.addEventListener('lock', () => {
                 instructions.style.display = 'none';
             });
-            
+
             controls.addEventListener('unlock', () => {
                 instructions.style.display = 'block';
             });
 
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
             scene.add(ambientLight);
+
             const pointLight = new THREE.PointLight(0xffffff, 0.7);
             pointLight.position.set(5, 10, 5);
             scene.add(pointLight);
 
             createRoom();
+
             animate();
         }
 
@@ -71,29 +125,29 @@
             roomLength = parseFloat(document.getElementById('length').value);
             roomHeight = parseFloat(document.getElementById('height').value);
 
+            selectedPlant = document.getElementById("plant").value;
+
             camera.position.set(0, roomHeight / 2, 0);
             camera.lookAt(0, roomHeight / 2, -1);
-
             const floorGeometry = new THREE.PlaneGeometry(roomWidth, roomLength);
-            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0xd5bdaf});
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x0a6522 });
             const floor = new THREE.Mesh(floorGeometry, floorMaterial);
             floor.rotation.x = -Math.PI / 2;
             floor.position.y = 0;
             floor.userData.roomObject = true;
             scene.add(floor);
 
-            const ceiling = new THREE.Mesh(floorGeometry, new THREE.MeshStandardMaterial({ color: 0x00b4d8 }));
+            const ceiling = new THREE.Mesh(floorGeometry, new THREE.MeshStandardMaterial({ color: 0x95cadb}));
             ceiling.rotation.x = Math.PI / 2;
             ceiling.position.y = roomHeight;
             ceiling.userData.roomObject = true;
             scene.add(ceiling);
 
-            const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffafcc });
-            const wallMaterial1 = new THREE.MeshStandardMaterial({ color: 0xcdb4db });
+            const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xffc5d3});
 
             const backWall = new THREE.Mesh(
                 new THREE.BoxGeometry(roomWidth, roomHeight, 0.1),
-                wallMaterial1
+                wallMaterial
             );
             backWall.position.set(0, roomHeight / 2, -roomLength / 2);
             backWall.userData.roomObject = true;
@@ -101,7 +155,7 @@
 
             const frontWall = new THREE.Mesh(
                 new THREE.BoxGeometry(roomWidth, roomHeight, 0.1),
-                wallMaterial1
+                wallMaterial
             );
             frontWall.position.set(0, roomHeight / 2, roomLength / 2);
             frontWall.userData.roomObject = true;
@@ -113,6 +167,7 @@
             );
             leftWall.position.set(-roomWidth / 2, roomHeight / 2, 0);
             leftWall.userData.roomObject = true;
+            scene.add(leftWall);
 
             const rightWall = new THREE.Mesh(
                 new THREE.BoxGeometry(0.1, roomHeight, roomLength),
@@ -121,11 +176,64 @@
             rightWall.position.set(roomWidth / 2, roomHeight / 2, 0);
             rightWall.userData.roomObject = true;
             scene.add(rightWall);
+
+            loadPlants();
         }
-        
+
+        function loadPlants() {
+            const loader = new THREE.GLTFLoader();
+
+            Object.values(plants).forEach((plant) => {
+                if (plant.model) {
+                    scene.remove(plant.model);
+                }
+            });
+
+            plants = {};
+            const plantModels = ["plant1.glb", "plant2.glb", "plant3.glb"];
+            const positions = [
+                [-roomWidth / 2 + 0.5, 0, -roomLength / 2 + 0.5], 
+                [0, 0, -roomLength / 2 + 0.5], 
+                [roomWidth / 2 - 0.5, 0, -roomLength / 2 + 0.5] 
+            ];
+
+            plantModels.forEach((model, index) => {
+                loader.load(model, (gltf) => {
+                    const plant = gltf.scene;
+                    plant.scale.set(0.02, 0.02, 0.02);
+                    plant.position.set(...positions[index]);
+                    scene.add(plant);
+                    plants[model] = { model: plant, scale: 0.02 }; 
+                }, undefined, (error) => {
+                    console.error('Error loading plant model:', model, error);
+                });
+            });
+        }
+
+        function growPlants() {
+            Object.entries(plants).forEach(([modelName, plant]) => {
+                const plantMaxScale = modelName === "plant3.glb" ? maxScale * 8 : maxScale;
+                
+                if (plant.scale < plantMaxScale) {
+                    const adjustedGrowthRate = growthRate * sunlightFactor * waterFactor;
+                    plant.scale += adjustedGrowthRate;
+                    plant.model.scale.set(plant.scale, plant.scale, plant.scale);
+                }
+            });
+        }
+
+        function updateGrowthFactors() {
+            const sunlight = parseFloat(document.getElementById("sunlight").value);
+            const water = parseFloat(document.getElementById("water").value);
+            sunlightFactor = sunlight / 100;
+            waterFactor = water / 100;
+        }
 
         function animate() {
             requestAnimationFrame(animate);
+
+            growPlants();
+
             renderer.render(scene, camera);
         }
 
